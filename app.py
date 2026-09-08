@@ -1,5 +1,7 @@
 import pandas as pd
+import requests
 import streamlit as st
+from xml.etree import ElementTree
 
 # إعدادات الصفحة
 st.set_page_config(
@@ -127,8 +129,8 @@ CAR_MODELS = {
     "Audi": {"A4": 2800000, "A6": 3900000, "Q3": 2500000, "Q7": 4900000},
 }
 
-# اسم "الفصيلة" اللي يفهمها imagin.studio لكل موديل (أول كلمة غالبًا كافية)
-MODEL_FAMILY_OVERRIDES = {
+# اسم مبسّط لكل موديل (من غير اللي بين قوسين) عشان البحث عن الصورة يبقى أدق
+MODEL_SEARCH_OVERRIDES = {
     "Cerato / K3": "Cerato",
     "3 Series (320i)": "3 Series",
     "5 Series (520i)": "5 Series",
@@ -139,19 +141,30 @@ MODEL_FAMILY_OVERRIDES = {
 DEFAULT_IMAGE = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80"
 
 
+@st.cache_data(show_spinner=False, ttl=60 * 60 * 24)
 def get_car_image_url(brand: str, model_name: str) -> str:
     """
-    بيرجع رابط صورة العربية الفعلية (البراند + الموديل) عن طريق imagin.studio
-    بدل تخمين صور Unsplash العشوائية اللي كانت بترجع صور غلط لمعظم الموديلات.
-    لو الخدمة مش متاحة أو الموديل مش موجود عندها، بيرجع صورة عامة واضح إنها بديلة.
+    بيرجع رابط صورة حقيقية للعربية عن طريق CarImagery API — خدمة مجانية بدون
+    مفتاح، اتأكدنا إنها شغالة فعليًا (بعكس imagin.studio اللي كان محتاج
+    اشتراك مدفوع وكان بيرجع 403). البحث بيتم بالبراند + الموديل، والنتيجة
+    بتتخزّن (cache) لمدة يوم عشان ما نستهلكش حد الطلبات المجاني (100 طلب/IP).
+    لو الخدمة فشلت لأي سبب، بيرجع صورة عامة بدل ما التطبيق يقع.
     """
-    model_family = MODEL_FAMILY_OVERRIDES.get(model_name, model_name.split(" ")[0])
-    url = (
-        "https://cdn.imagin.studio/getImage"
-        f"?customer=img&make={brand}&modelFamily={model_family}"
-        "&zoomType=fullscreen&angle=01"
-    )
-    return url
+    search_term = f"{brand} {MODEL_SEARCH_OVERRIDES.get(model_name, model_name)}"
+    try:
+        resp = requests.get(
+            "http://www.carimagery.com/api.asmx/GetImageUrl",
+            params={"searchTerm": search_term},
+            timeout=6,
+        )
+        resp.raise_for_status()
+        root = ElementTree.fromstring(resp.content)
+        image_url = (root.text or "").strip()
+        if image_url.startswith("http"):
+            return image_url.replace("http://", "https://", 1)
+    except Exception:
+        pass
+    return DEFAULT_IMAGE
 
 
 # دالة حساب السعر
@@ -333,11 +346,15 @@ with tab2:
         b1 = st.selectbox("Brand 1", sorted(list(CAR_MODELS.keys())), key="b1")
         m1 = st.selectbox("Model 1", list(CAR_MODELS[b1].keys()), key="m1")
         y1 = st.number_input("Year 1", 2000, CURRENT_YEAR, 2020, key="y1")
-        km1 = st.number_input("KM 1", 0, 500000, 60000, key="km1")
         cond1 = st.radio(
             "Condition 1",
             ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"],
             key="cond1",
+        )
+        km1 = (
+            0
+            if cond1 == "Zero (Brand New)"
+            else st.number_input("KM 1", 0, 500000, 60000, key="km1")
         )
         trans1 = st.selectbox(
             "Transmission 1", ["Automatic", "Manual"], key="t1"
@@ -348,11 +365,15 @@ with tab2:
         b2 = st.selectbox("Brand 2", sorted(list(CAR_MODELS.keys())), key="b2")
         m2 = st.selectbox("Model 2", list(CAR_MODELS[b2].keys()), key="m2")
         y2 = st.number_input("Year 2", 2000, CURRENT_YEAR, 2018, key="y2")
-        km2 = st.number_input("KM 2", 0, 500000, 100000, key="km2")
         cond2 = st.radio(
             "Condition 2",
             ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"],
             key="cond2",
+        )
+        km2 = (
+            0
+            if cond2 == "Zero (Brand New)"
+            else st.number_input("KM 2", 0, 500000, 100000, key="km2")
         )
         trans2 = st.selectbox(
             "Transmission 2", ["Automatic", "Manual"], key="t2"
