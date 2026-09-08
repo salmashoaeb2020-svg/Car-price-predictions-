@@ -6,48 +6,48 @@ st.set_page_config(
     page_title="Car Price Predictor", page_icon="🚗", layout="centered"
 )
 
-# 1. قاموس الشركات والموديلات الخاصة بكل شركة مع أسعارها الأساسية المبدئية
+# 1. الموديلات والأسعار الأساسية الواقعية (سعر الزيرو/كسر الزيرو التقريبي لعام 2024-2026)
 CAR_MODELS = {
     "Nissan": {
-        "Sunny": 690000,
-        "Sentra": 950000,
-        "Qashqai": 1400000,
-        "Juke": 1100000,
+        "Sunny": 800000,
+        "Sentra": 1100000,
+        "Qashqai": 1650000,
+        "Juke": 1300000,
     },
     "Toyota": {
-        "Corolla": 1300000,
-        "Yaris": 850000,
-        "Fortuner": 3200000,
-        "C-HR": 1500000,
+        "Corolla": 1600000,
+        "Yaris": 1000000,
+        "Fortuner": 3800000,
+        "C-HR": 1750000,
     },
     "BMW": {
-        "3 Series (320i)": 2800000,
-        "5 Series (520i)": 3900000,
-        "X1": 2400000,
-        "X5": 5200000,
+        "3 Series (320i)": 3500000,
+        "5 Series (520i)": 4800000,
+        "X1": 2900000,
+        "X5": 6200000,
     },
     "Mercedes": {
-        "C-Class (C180/C200)": 3300000,
-        "E-Class (E200)": 4500000,
-        "A-Class": 2200000,
-        "GLC": 4800000,
+        "C-Class (C180/C200)": 4200000,
+        "E-Class (E200)": 5800000,
+        "A-Class": 2700000,
+        "GLC": 5900000,
     },
     "Hyundai": {
-        "Elantra": 1050000,
-        "Tucson": 1650000,
-        "Accent": 750000,
-        "Creta": 1200000,
+        "Elantra": 1300000,
+        "Tucson": 1900000,
+        "Accent": 900000,
+        "Creta": 1400000,
     },
     "Kia": {
-        "Cerato / K3": 1100000,
-        "Sportage": 1700000,
-        "Pegas": 700000,
-        "Seltos": 1300000,
+        "Cerato / K3": 1350000,
+        "Sportage": 1950000,
+        "Pegas": 850000,
+        "Seltos": 1500000,
     },
     "Chevrolet": {
-        "Optra": 600000,
-        "Aveo": 500000,
-        "Captiva": 1350000,
+        "Optra": 750000,
+        "Aveo": 600000,
+        "Captiva": 1500000,
     },
 }
 
@@ -87,14 +87,9 @@ st.write("Select the car brand and model line to get an accurate price range.")
 col_input, col_img = st.columns([1.2, 1])
 
 with col_input:
-    # 1. اختيار الشركة
     brand = st.selectbox("Car Brand", list(CAR_MODELS.keys()))
-
-    # 2. اختيار الموديل التابع للشركة المحددة ديناميكياً
     available_models = list(CAR_MODELS[brand].keys())
     model_name = st.selectbox("Car Model / Line", available_models)
-
-    # 3. نوع الفتيس
     transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
 
 with col_img:
@@ -102,7 +97,6 @@ with col_img:
         CAR_IMAGES[brand], caption=f"{brand} Preview", use_container_width=True
     )
 
-# اختيار حالة السيارة
 car_condition = st.radio(
     "Car Condition",
     ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
@@ -113,7 +107,7 @@ col1, col2 = st.columns(2)
 
 with col1:
     year = st.number_input(
-        "Manufacturing Year", min_value=2000, max_value=2026, value=2022
+        "Manufacturing Year", min_value=2000, max_value=2026, value=2012
     )
     fuel_type = st.selectbox(
         "Fuel Type", ["Petrol", "Diesel", "Hybrid", "Electric"]
@@ -125,59 +119,46 @@ with col2:
         st.info("Kilometers Driven: 0 KM (Brand New)")
     else:
         km_driven = st.number_input(
-            "Kilometers Driven (KM)", min_value=0, max_value=500000, value=10000
+            "Kilometers Driven (KM)", min_value=0, max_value=500000, value=200000
         )
 
 st.markdown("---")
 
-# حساب وتوقع السعر
+# حساب السعر الموزون
 if st.button("Predict Price"):
-    # جلب السعر الأساسي الخاص بالموديل المحدد بوضوح
     base_price = CAR_MODELS[brand][model_name]
 
-    # 1. معامل سنة الصنع
-    if year >= 2025:
-        year_mult = 1.18
-    elif year >= 2022:
-        year_mult = 1.02
-    elif year >= 2018:
-        year_mult = 0.80
-    else:
-        year_mult = 0.58
+    # 1. خصم سنوي واقعي (3.5% لكل سنة قدم عن 2026 بحد أقصى خصم 50%)
+    years_old = 2026 - year
+    age_depreciation = min(years_old * 0.035, 0.50)
 
-    # 2. معامل الكيلومترات
-    if km_driven == 0:
-        km_mult = 1.0
-    elif km_driven < 50000:
-        km_mult = 0.90
-    elif km_driven < 100000:
-        km_mult = 0.80
-    else:
-        km_mult = 0.68
+    # 2. خصم الكيلومترات (1% لكل 20 ألف كم - بحد أقصى خصم 15%)
+    km_depreciation = min((km_driven / 20000) * 0.01, 0.15)
 
-    # 3. معامل حالة السيارة
-    if car_condition == "Zero (Brand New)":
-        cond_mult = 1.10
-    elif car_condition == "Nearly New (كسر زيرو)":
-        cond_mult = 0.98
-    else:
-        cond_mult = 0.85
+    # 3. خصم الفتيس المانيوال (5%)
+    trans_depreciation = 0.05 if transmission == "Manual" else 0.0
 
-    # 4. معامل الفتيس
-    trans_mult = 0.92 if transmission == "Manual" else 1.0
-
-    # السعر المتوقع النهائي
-    estimated_price = (
-        base_price * year_mult * km_mult * cond_mult * trans_mult
+    # إجمالي الخصم
+    total_depreciation = (
+        age_depreciation + km_depreciation + trans_depreciation
     )
 
-    # رينج السعر (نسبة خطأ ±5%)
+    if car_condition == "Zero (Brand New)":
+        estimated_price = base_price
+    elif car_condition == "Nearly New (كسر زيرو)":
+        estimated_price = base_price * 0.92
+    else:
+        # حساب سعر المستعمل مع ضمان ألا يقل عن 45% من قيمة السيارة الأصلية
+        estimated_price = base_price * (1.0 - total_depreciation)
+        estimated_price = max(estimated_price, base_price * 0.45)
+
+    # رينج السعر (±5%)
     min_price = estimated_price * 0.95
     max_price = estimated_price * 1.05
 
     # عرض النتائج
     st.success(
-        f"🎯 **Estimated Price for ({brand} {model_name}):** {estimated_price:,.2f} EGP\n\n"
+        f"🎯 **Estimated Price for ({brand} {model_name} {year}):** {estimated_price:,.2f} EGP\n\n"
         f"📊 **Expected Price Range (±5% Error Margin):** {min_price:,.2f} EGP — {max_price:,.2f} EGP"
     )
 
