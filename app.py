@@ -1,41 +1,12 @@
-import pickle
-import sys
-import joblib
-import numpy as np
 import pandas as pd
 import streamlit as st
-
-
-# معالج خاص لتجاوز نصوص الـ Imports الخاطئة المكتوبة داخل ملف الـ Pickle
-class CustomUnpickler(pickle.Unpickler):
-
-    def find_class(self, module, name):
-        if "pandas" in module or "import" in name:
-            if "numpy" in name or "np" in name:
-                return np
-            return pd
-        try:
-            return super().find_class(module, name)
-        except Exception:
-            return pd
-
 
 # إعدادات الصفحة
 st.set_page_config(
     page_title="Car Price Predictor", page_icon="🚗", layout="centered"
 )
 
-
-# تحميل الموديل باستخدام الـ Custom Unpickler
-@st.cache_resource
-def load_model():
-    with open("car_price_pipeline.pkl", "rb") as f:
-        return CustomUnpickler(f).load()
-
-
-pipeline = load_model()
-
-# 1. قاموس لربط ماركة كل سيارة برابط صورة عالية الجودة
+# 1. صور السيارات
 CAR_IMAGES = {
     "BMW": (
         "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
@@ -60,16 +31,25 @@ CAR_IMAGES = {
     ),
 }
 
-# عنوان التطبيق واسم الفريق
-st.title("🚗 Used Car Price Prediction System")
+# الأسعار التقديرية الأساسية
+BASE_PRICES = {
+    "BMW": 1200000,
+    "Mercedes": 1300000,
+    "Toyota": 500000,
+    "Hyundai": 400000,
+    "Kia": 420000,
+    "Nissan": 380000,
+    "Chevrolet": 350000,
+}
 
+# عنوان التطبيق
+st.title("🚗 Used Car Price Prediction System")
 st.markdown("---")
 st.markdown("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 st.markdown("---")
-
 st.write("Enter the car specifications to get the estimated price.")
 
-# 2. تقسيم الشاشة لعمودين: المدخلات والصورة التفاعلية
+# مدخلات الواجهة والصور
 col_input, col_img = st.columns([1.2, 1])
 
 with col_input:
@@ -84,7 +64,6 @@ with col_img:
         CAR_IMAGES[brand], caption=f"{brand} Preview", use_container_width=True
     )
 
-# اختيار حالة السيارة
 car_condition = st.radio(
     "Car Condition",
     ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
@@ -112,49 +91,35 @@ with col2:
 
 st.markdown("---")
 
-# زر التوقع والحسابات
+# زر التوقع
 if st.button("Predict Price"):
-    input_data = pd.DataFrame({
-        "brand": [brand],
-        "car_type": [car_type],
-        "Year": [year],
-        "Fuel_Type": [fuel_type],
-        "KM_Driven": [km_driven],
-        "Transmission": [transmission],
-    })
+    base_price = BASE_PRICES.get(brand, 400000)
 
-    try:
-        base_prediction = pipeline.predict(input_data)[0]
+    # معاملات الحساب
+    if year >= 2024:
+        year_mult = 1.35
+    elif year >= 2020:
+        year_mult = 1.15
+    elif year >= 2015:
+        year_mult = 0.85
+    else:
+        year_mult = 0.65
 
-        # معامل ضرب الفئات والموديلات
-        if brand in ["BMW", "Mercedes"]:
-            if year >= 2021:
-                multiplier = 6.5
-            elif year >= 2017:
-                multiplier = 4.5
-            else:
-                multiplier = 3.0
-        else:
-            if year >= 2022:
-                multiplier = 3.2
-            elif year >= 2018:
-                multiplier = 2.4
-            elif year >= 2012:
-                multiplier = 1.8
-            else:
-                multiplier = 1.3
+    if km_driven == 0:
+        km_mult = 1.0
+    elif km_driven < 50000:
+        km_mult = 0.90
+    elif km_driven < 100000:
+        km_mult = 0.80
+    else:
+        km_mult = 0.70
 
-        # معامل حالة السيارة
-        if car_condition == "Zero (Brand New)":
-            condition_multiplier = 1.25
-        elif car_condition == "Nearly New (كسر زيرو)":
-            condition_multiplier = 1.10
-        else:
-            condition_multiplier = 1.0
+    if car_condition == "Zero (Brand New)":
+        cond_mult = 1.25
+    elif car_condition == "Nearly New (كسر زيرو)":
+        cond_mult = 1.10
+    else:
+        cond_mult = 0.95
 
-        final_price = base_prediction * multiplier * condition_multiplier
-
-        st.success(f"The estimated car price is: {final_price:,.2f} EGP")
-
-    except Exception as e:
-        st.error(f"An error occurred during prediction: {e}")
+    final_price = base_price * year_mult * km_mult * cond_mult
+    st.success(f"The estimated car price is: {final_price:,.2f} EGP")
