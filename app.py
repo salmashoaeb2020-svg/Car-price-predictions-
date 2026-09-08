@@ -125,7 +125,7 @@ CAR_MODELS = {
     "Audi": {"A4": 2800000, "A6": 3900000, "Q3": 2500000, "Q7": 4900000},
 }
 
-# 2. صور مخصصة لكل موديل وسيدان محددة
+# 2. صور مخصصة للموديلات
 MODEL_IMAGES = {
     "Chevrolet": {
         "Aveo": "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
@@ -149,11 +149,10 @@ MODEL_IMAGES = {
     },
 }
 
-# صورة افتراضية عند عدم توفر صورة مخصصة للموديل
 DEFAULT_IMAGE = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80"
 
 
-# دالة حساب السعر المعدلة ذكياً
+# دالة حساب السعر
 def calculate_car_price(
     brand, model_name, year, km_driven, car_condition, transmission
 ):
@@ -178,14 +177,14 @@ def calculate_car_price(
     ):
         est_price = base_price * 0.92
     else:
-        # معالجة ذكية: إذا اختار المستخدم "كسر زيرو" لسيارة قديمة، تُعامل كسيارة مستعملة عادي لمنع الخلل
         est_price = base_price * (1.0 - total_dep)
         est_price = max(est_price, base_price * 0.45)
 
     min_p = est_price * 0.95
     max_p = est_price * 1.05
 
-    return est_price, min_p, max_p, base_p, age_dep, km_dep, trans_dep
+    # تم تصحيح الاسم هنا إلى base_price
+    return est_price, min_p, max_p, base_price, age_dep, km_dep, trans_dep
 
 
 # هيدر التطبيق
@@ -206,7 +205,6 @@ with tab1:
         transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
 
     with col_img:
-        # جلب صورة الموديل المخصص أو الصورة الافتراضية
         img_url = MODEL_IMAGES.get(brand, {}).get(model_name, DEFAULT_IMAGE)
         st.image(
             img_url,
