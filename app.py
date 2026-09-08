@@ -6,7 +6,7 @@ st.set_page_config(
     page_title="Car Price Predictor", page_icon="🚗", layout="centered"
 )
 
-# 1. قاموس لربط ماركة كل سيارة برابط صورة عالية الجودة
+# 1. صور السيارات
 CAR_IMAGES = {
     "BMW": (
         "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
@@ -31,25 +31,25 @@ CAR_IMAGES = {
     ),
 }
 
-# 2. الأسعار الأساسية المعدلة وفقاً للسوق
+# 2. الأسعار الأساسية الموزونة لعام 2026
 BASE_PRICES = {
-    "BMW": 3800000,
-    "Mercedes": 4200000,
-    "Toyota": 1800000,
-    "Hyundai": 1200000,
-    "Kia": 1300000,
-    "Nissan": 1000000,
-    "Chevrolet": 900000,
+    "BMW": 3200000,
+    "Mercedes": 3500000,
+    "Toyota": 1500000,
+    "Hyundai": 1000000,
+    "Kia": 1100000,
+    "Nissan": 850000,
+    "Chevrolet": 750000,
 }
 
-# عنوان التطبيق واسم الفريق
+# عنوان التطبيق
 st.title("🚗 Used Car Price Prediction System")
 st.markdown("---")
 st.markdown("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 st.markdown("---")
 st.write("Enter the car specifications to get the estimated price.")
 
-# 3. تقسيم الشاشة لعمودين: المدخلات والصورة التفاعلية
+# مدخلات المستخدم
 col_input, col_img = st.columns([1.2, 1])
 
 with col_input:
@@ -64,7 +64,6 @@ with col_img:
         CAR_IMAGES[brand], caption=f"{brand} Preview", use_container_width=True
     )
 
-# اختيار حالة السيارة
 car_condition = st.radio(
     "Car Condition",
     ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
@@ -92,40 +91,58 @@ with col2:
 
 st.markdown("---")
 
-# 4. حساب وتوقع السعر
+# حساب السعر ورسم البياني
 if st.button("Predict Price"):
-    base_price = BASE_PRICES.get(brand, 1200000)
+    base_price = BASE_PRICES.get(brand, 1000000)
 
-    # معامل نوع الهيكل
-    type_mult = 1.25 if car_type == "SUV" else 1.0
+    # معاملات متوازنة
+    type_mult = 1.12 if car_type == "SUV" else 1.0
 
-    # معامل سنة الصنع
-    if year >= 2024:
-        year_mult = 1.30
+    if year >= 2025:
+        year_mult = 1.20
     elif year >= 2022:
-        year_mult = 1.10
+        year_mult = 1.05
     elif year >= 2018:
-        year_mult = 0.85
+        year_mult = 0.82
     else:
-        year_mult = 0.65
+        year_mult = 0.60
 
-    # معامل الكيلومترات
     if km_driven == 0:
         km_mult = 1.0
     elif km_driven < 50000:
-        km_mult = 0.88
+        km_mult = 0.90
     elif km_driven < 100000:
-        km_mult = 0.78
+        km_mult = 0.80
     else:
-        km_mult = 0.68
+        km_mult = 0.70
 
-    # معامل حالة السيارة
     if car_condition == "Zero (Brand New)":
-        cond_mult = 1.20
+        cond_mult = 1.10
     elif car_condition == "Nearly New (كسر زيرو)":
-        cond_mult = 1.05
+        cond_mult = 1.0
     else:
-        cond_mult = 0.90
+        cond_mult = 0.88
 
-    final_price = base_price * type_mult * year_mult * km_mult * cond_mult
-    st.success(f"The estimated car price is: {final_price:,.2f} EGP")
+    # السعر المتوقع
+    estimated_price = base_price * type_mult * year_mult * km_mult * cond_mult
+
+    # رينج السعر (نسبة خطأ ±5%)
+    min_price = estimated_price * 0.95
+    max_price = estimated_price * 1.05
+
+    # عرض النتائج
+    st.success(
+        f"🎯 **Estimated Expected Price:** {estimated_price:,.2f} EGP\n\n"
+        f"📊 **Price Range (Margin of Error ±5%):** {min_price:,.2f} EGP — {max_price:,.2f} EGP"
+    )
+
+    # بيانات الرسم البياني
+    chart_data = pd.DataFrame(
+        {
+            "Price Range": ["Minimum Price", "Estimated Price", "Maximum Price"],
+            "Price (EGP)": [min_price, estimated_price, max_price],
+        }
+    )
+
+    st.subheader("📊 Price Range Visualization")
+    st.bar_chart(chart_data.set_index("Price Range"))
