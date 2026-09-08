@@ -1,0 +1,40 @@
+import pandas as pd
+import numpy as np
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+data = {
+    'Year': [2017, 2015, 2019, 2021, 2010, 2018, 2016, 2020, 2014, 2022],
+    'KM_Driven': [60000, 90000, 30000, 15000, 150000, 45000, 80000, 20000, 110000, 10000],
+    'Fuel_Type': ['Petrol', 'Diesel', 'Petrol', 'Petrol', 'Diesel', 'Petrol', 'Diesel', 'Petrol', 'Diesel', 'Petrol'],
+    'Transmission': ['Manual', 'Manual', 'Automatic', 'Automatic', 'Manual', 'Automatic', 'Manual', 'Automatic', 'Manual', 'Automatic'],
+    'Price': [250000, 180000, 400000, 550000, 110000, 380000, 210000, 490000, 160000, 620000]
+}
+df = pd.DataFrame(data)
+
+X = df.drop('Price', axis=1)
+y = df['Price']
+
+categorical_features = ['Fuel_Type', 'Transmission']
+numeric_features = ['Year', 'KM_Driven']
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', 'passthrough', numeric_features),
+        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
+    ]
+)
+
+pipeline = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
+])
+
+pipeline.fit(X, y)
+
+joblib.dump(pipeline, 'car_price_pipeline.pkl')
+print("Done")
