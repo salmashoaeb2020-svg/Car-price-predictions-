@@ -1,0 +1,5 @@
+import joblib
+import pandas as pd
+
+# اعيدي حفظ الموديل من جديد
+joblib.dump(pipeline, 'car_price_pipeline.pkl')
