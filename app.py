@@ -1,12 +1,18 @@
+import sys
 import joblib
 import pandas as pd
 import streamlit as st
 
+# حل مشكلة اسم المكتبة المكتوب غلط جوه ملف الموديل
+sys.modules['mport pandas as pd'] = pd
+
+# إعدادات الصفحة
 st.set_page_config(
     page_title="Car Price Predictor", page_icon="🚗", layout="centered"
 )
 
 
+# تحميل الموديل المجهز
 @st.cache_resource
 def load_model():
     return joblib.load("car_price_pipeline.pkl")
@@ -14,7 +20,7 @@ def load_model():
 
 pipeline = load_model()
 
-# 1. قاموس يعرض رابط صورة لكل ماركة سيارة
+# 1. قاموس لربط ماركة كل سيارة برابط صورة عالية الجودة
 CAR_IMAGES = {
     "BMW": (
         "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
@@ -39,15 +45,16 @@ CAR_IMAGES = {
     ),
 }
 
+# عنوان التطبيق واسم الفريق
 st.title("🚗 Used Car Price Prediction System")
 
 st.markdown("---")
-st.markdown("👩‍💻 **Developed by:** Habiba Essam & Salma Ahmed")
+st.markdown("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 st.markdown("---")
 
 st.write("Enter the car specifications to get the estimated price.")
 
-# 2. تقسيم الشاشة لعرض المدخلات على الشمال والصورة على اليمين
+# 2. تقسيم الشاشة لعمودين: المدخلات والصورة التفاعلية
 col_input, col_img = st.columns([1.2, 1])
 
 with col_input:
@@ -58,11 +65,11 @@ with col_input:
     transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
 
 with col_img:
-    # عرض صورة الماركة المختارة تلقائياً
     st.image(
         CAR_IMAGES[brand], caption=f"{brand} Preview", use_container_width=True
     )
 
+# اختيار حالة السيارة
 car_condition = st.radio(
     "Car Condition",
     ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
@@ -90,6 +97,7 @@ with col2:
 
 st.markdown("---")
 
+# زر التوقع والحسابات
 if st.button("Predict Price"):
     input_data = pd.DataFrame({
         "brand": [brand],
@@ -103,6 +111,7 @@ if st.button("Predict Price"):
     try:
         base_prediction = pipeline.predict(input_data)[0]
 
+        # معامل ضرب الفئات والموديلات
         if brand in ["BMW", "Mercedes"]:
             if year >= 2021:
                 multiplier = 6.5
@@ -120,6 +129,7 @@ if st.button("Predict Price"):
             else:
                 multiplier = 1.3
 
+        # معامل حالة السيارة
         if car_condition == "Zero (Brand New)":
             condition_multiplier = 1.25
         elif car_condition == "Nearly New (كسر زيرو)":
