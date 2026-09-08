@@ -1,10 +1,23 @@
 import sys
 import joblib
+import numpy as np
 import pandas as pd
 import streamlit as st
 
-# حل مشكلة اسم المكتبة المكتوب غلط جوه ملف الموديل
-sys.modules['mport pandas as pd'] = pd
+
+# معالج خاص لتجاوز نصوص الـ Imports الخاطئة المكتوبة داخل ملف الـ Pickle
+class CustomUnpickler(joblib.Unpickler):
+
+    def find_class(self, module, name):
+        if "pandas" in module or "import" in name:
+            if "numpy" in name or "np" in name:
+                return np
+            return pd
+        try:
+            return super().find_class(module, name)
+        except Exception:
+            return pd
+
 
 # إعدادات الصفحة
 st.set_page_config(
@@ -12,10 +25,11 @@ st.set_page_config(
 )
 
 
-# تحميل الموديل المجهز
+# تحميل الموديل باستخدام الـ Custom Unpickler
 @st.cache_resource
 def load_model():
-    return joblib.load("car_price_pipeline.pkl")
+    with open("car_price_pipeline.pkl", "rb") as f:
+        return CustomUnpickler(f).load()
 
 
 pipeline = load_model()
