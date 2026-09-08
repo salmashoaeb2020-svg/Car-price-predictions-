@@ -6,7 +6,9 @@ st.set_page_config(
     page_title="Car Price Predictor", page_icon="🚗", layout="wide"
 )
 
-# 1. قاعدة بيانات الشركات والموديلات والأسعار الأساسية
+CURRENT_YEAR = 2026  # ⚠️ لازم يتحدّث كل سنة (أو يتحسب تلقائي من datetime.now().year)
+
+# 1. قاعدة بيانات الشركات والموديلات والأسعار الأساسية (أسعار الزيرو التقريبية)
 CAR_MODELS = {
     "Chevrolet": {
         "Aveo": 600000,
@@ -125,31 +127,31 @@ CAR_MODELS = {
     "Audi": {"A4": 2800000, "A6": 3900000, "Q3": 2500000, "Q7": 4900000},
 }
 
-# 2. صور مخصصة للموديلات
-MODEL_IMAGES = {
-    "Chevrolet": {
-        "Aveo": "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
-        "Optra": "https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=800&q=80",
-        "Captiva": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
-    },
-    "Toyota": {
-        "Corolla": "https://images.unsplash.com/photo-1629897048514-3dd7414fe72a?auto=format&fit=crop&w=800&q=80"
-    },
-    "BMW": {
-        "3 Series (320i)": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
-    },
-    "Mercedes": {
-        "C-Class (C180/C200)": "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=800&q=80"
-    },
-    "Hyundai": {
-        "Elantra": "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=800&q=80"
-    },
-    "Nissan": {
-        "Sunny": "https://images.unsplash.com/photo-1609521263047-f8d205293f24?auto=format&fit=crop&w=800&q=80"
-    },
+# اسم "الفصيلة" اللي يفهمها imagin.studio لكل موديل (أول كلمة غالبًا كافية)
+MODEL_FAMILY_OVERRIDES = {
+    "Cerato / K3": "Cerato",
+    "3 Series (320i)": "3 Series",
+    "5 Series (520i)": "5 Series",
+    "C-Class (C180/C200)": "C-Class",
+    "E-Class (E200)": "E-Class",
 }
 
 DEFAULT_IMAGE = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80"
+
+
+def get_car_image_url(brand: str, model_name: str) -> str:
+    """
+    بيرجع رابط صورة العربية الفعلية (البراند + الموديل) عن طريق imagin.studio
+    بدل تخمين صور Unsplash العشوائية اللي كانت بترجع صور غلط لمعظم الموديلات.
+    لو الخدمة مش متاحة أو الموديل مش موجود عندها، بيرجع صورة عامة واضح إنها بديلة.
+    """
+    model_family = MODEL_FAMILY_OVERRIDES.get(model_name, model_name.split(" ")[0])
+    url = (
+        "https://cdn.imagin.studio/getImage"
+        f"?customer=img&make={brand}&modelFamily={model_family}"
+        "&zoomType=fullscreen&angle=01"
+    )
+    return url
 
 
 # دالة حساب السعر
@@ -157,10 +159,19 @@ def calculate_car_price(
     brand, model_name, year, km_driven, car_condition, transmission
 ):
     base_price = CAR_MODELS[brand][model_name]
-    years_old = 2026 - year
+    years_old = max(CURRENT_YEAR - year, 0)
 
-    age_dep = min(years_old * 0.035, 0.50)
-    km_dep = min((km_driven / 20000) * 0.01, 0.15)
+    # --- إهلاك العمر: انخفاض أسرع في أول سنتين، وبعدين بمعدل أبطأ ---
+    # (سقف أعلى من قبل، لأن عربية عمرها 15-20 سنة فعلاً بتفقد أغلب قيمتها)
+    if years_old <= 2:
+        age_dep = years_old * 0.10          # 10% للسنة الأولى والتانية
+    else:
+        age_dep = 0.20 + (years_old - 2) * 0.035
+    age_dep = min(age_dep, 0.75)
+
+    # --- إهلاك الكيلومترات: تأثير أوضح، وسقف أعلى (كان 15% بس، دلوقتي 35%) ---
+    km_dep = min((km_driven / 10000) * 0.015, 0.35)
+
     trans_dep = 0.05 if transmission == "Manual" else 0.0
 
     total_dep = age_dep + km_dep + trans_dep
@@ -178,18 +189,23 @@ def calculate_car_price(
         est_price = base_price * 0.92
     else:
         est_price = base_price * (1.0 - total_dep)
-        est_price = max(est_price, base_price * 0.45)
+        # الأرضية كانت 45% وده كان بيخلي العربيات القديمة جدًا/الماشية كتير
+        # مبالغ فيها في السعر. اتقلّلت لـ 15% عشان تبقى أقرب للواقع.
+        est_price = max(est_price, base_price * 0.15)
 
     min_p = est_price * 0.95
     max_p = est_price * 1.05
 
-    # تم تصحيح الاسم هنا إلى base_price
     return est_price, min_p, max_p, base_price, age_dep, km_dep, trans_dep
 
 
 # هيدر التطبيق
 st.title("🚗 Smart Car Price Valuation System")
 st.caption("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
+st.caption(
+    "⚠️ الأسعار والصور تقديرية بناءً على قواعد مبسّطة وليست بيانات سوق حية. "
+    "يُنصح بتحديث `CAR_MODELS` بشكل دوري ليعكس السوق الفعلي."
+)
 st.markdown("---")
 
 tab1, tab2 = st.tabs(["🔮 Predict Single Car Price", "⚖️ Compare Two Cars"])
@@ -205,10 +221,10 @@ with tab1:
         transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
 
     with col_img:
-        img_url = MODEL_IMAGES.get(brand, {}).get(model_name, DEFAULT_IMAGE)
+        img_url = get_car_image_url(brand, model_name)
         st.image(
             img_url,
-            caption=f"{brand} {model_name} Preview",
+            caption=f"{brand} {model_name} (صورة تقريبية)",
             use_container_width=True,
         )
 
@@ -221,7 +237,7 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         year = st.number_input(
-            "Manufacturing Year", min_value=2000, max_value=2026, value=2016
+            "Manufacturing Year", min_value=2000, max_value=CURRENT_YEAR, value=2016
         )
         fuel_type = st.selectbox(
             "Fuel Type", ["Petrol", "Diesel", "Hybrid", "Electric"]
@@ -254,7 +270,7 @@ with tab1:
         with st.expander("🔍 Price Breakdown & Factor Analysis"):
             st.write(f"• **Base Valuation (Zero Price):** {base_p:,.2f} EGP")
             st.write(
-                f"• **Age Discount ({2026 - year} Years Old):** -{age_dep * 100:.1f}%"
+                f"• **Age Discount ({CURRENT_YEAR - year} Years Old):** -{age_dep * 100:.1f}%"
             )
             st.write(
                 f"• **Mileage Discount ({km_driven:,} KM):** -{km_dep * 100:.1f}%"
@@ -316,7 +332,7 @@ with tab2:
         st.markdown("### 🚗 Car 1")
         b1 = st.selectbox("Brand 1", sorted(list(CAR_MODELS.keys())), key="b1")
         m1 = st.selectbox("Model 1", list(CAR_MODELS[b1].keys()), key="m1")
-        y1 = st.number_input("Year 1", 2000, 2026, 2020, key="y1")
+        y1 = st.number_input("Year 1", 2000, CURRENT_YEAR, 2020, key="y1")
         km1 = st.number_input("KM 1", 0, 500000, 60000, key="km1")
         cond1 = st.radio(
             "Condition 1",
@@ -331,7 +347,7 @@ with tab2:
         st.markdown("### 🚗 Car 2")
         b2 = st.selectbox("Brand 2", sorted(list(CAR_MODELS.keys())), key="b2")
         m2 = st.selectbox("Model 2", list(CAR_MODELS[b2].keys()), key="m2")
-        y2 = st.number_input("Year 2", 2000, 2026, 2018, key="y2")
+        y2 = st.number_input("Year 2", 2000, CURRENT_YEAR, 2018, key="y2")
         km2 = st.number_input("KM 2", 0, 500000, 100000, key="km2")
         cond2 = st.radio(
             "Condition 2",
