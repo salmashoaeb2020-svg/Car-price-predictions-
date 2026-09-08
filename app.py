@@ -9,7 +9,7 @@ st.set_page_config(
 # 1. قاعدة بيانات الشركات والموديلات والأسعار الأساسية
 CAR_MODELS = {
     "Chevrolet": {
-        "Aveo": 600000, 
+        "Aveo": 600000,
         "Optra": 750000,
         "Cruze": 650000,
         "Captiva": 1500000,
@@ -149,22 +149,29 @@ CAR_IMAGES = {
     ),
 }
 
-# دالة حساب السعر
+# دالة حساب السعر المعدلة ذكياً
 def calculate_car_price(
     brand, model_name, year, km_driven, car_condition, transmission
 ):
     base_price = CAR_MODELS[brand][model_name]
     years_old = 2026 - year
+    
     age_dep = min(years_old * 0.035, 0.50)
     km_dep = min((km_driven / 20000) * 0.01, 0.15)
     trans_dep = 0.05 if transmission == "Manual" else 0.0
+    
     total_dep = age_dep + km_dep + trans_dep
 
+    # إذا كسر زيرو وسيارة حديثة وقليلة الكيلومترات (أقل من 30,000 كم وفي آخر 3 سنوات)
     if car_condition == "Zero (Brand New)":
         est_price = base_price
-    elif car_condition == "Nearly New (كسر زيرو)":
+        age_dep = 0.0
+        km_dep = 0.0
+        trans_dep = 0.0
+    elif car_condition == "Nearly New (كسر زيرو)" and years_old <= 3 and km_driven <= 30000:
         est_price = base_price * 0.92
     else:
+        # لو السيارة قديمة أو ماشية كتير ومختارة كسر زيرو أو مستعمل، تُحسب كسيارة مستعملة عادي لمنع الخلل
         est_price = base_price * (1.0 - total_dep)
         est_price = max(est_price, base_price * 0.45)
 
@@ -208,7 +215,7 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         year = st.number_input(
-            "Manufacturing Year", min_value=2000, max_value=2026, value=2011
+            "Manufacturing Year", min_value=2000, max_value=2026, value=2016
         )
         fuel_type = st.selectbox(
             "Fuel Type", ["Petrol", "Diesel", "Hybrid", "Electric"]
@@ -239,7 +246,7 @@ with tab1:
         )
 
         with st.expander("🔍 Price Breakdown & Factor Analysis"):
-            st.write(f"• **Base Valuation:** {base_p:,.2f} EGP")
+            st.write(f"• **Base Valuation (Zero Price):** {base_p:,.2f} EGP")
             st.write(
                 f"• **Age Discount ({2026 - year} Years Old):** -{age_dep * 100:.1f}%"
             )
@@ -306,7 +313,7 @@ with tab2:
         y1 = st.number_input("Year 1", 2000, 2026, 2020, key="y1")
         km1 = st.number_input("KM 1", 0, 500000, 60000, key="km1")
         cond1 = st.radio(
-            "Condition 1", ["Used (مستعمل)", "Zero (Brand New)"], key="cond1"
+            "Condition 1", ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"], key="cond1"
         )
         trans1 = st.selectbox(
             "Transmission 1", ["Automatic", "Manual"], key="t1"
@@ -319,7 +326,7 @@ with tab2:
         y2 = st.number_input("Year 2", 2000, 2026, 2018, key="y2")
         km2 = st.number_input("KM 2", 0, 500000, 100000, key="km2")
         cond2 = st.radio(
-            "Condition 2", ["Used (مستعمل)", "Zero (Brand New)"], key="cond2"
+            "Condition 2", ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"], key="cond2"
         )
         trans2 = st.selectbox(
             "Transmission 2", ["Automatic", "Manual"], key="t2"
