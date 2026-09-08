@@ -125,29 +125,33 @@ CAR_MODELS = {
     "Audi": {"A4": 2800000, "A6": 3900000, "Q3": 2500000, "Q7": 4900000},
 }
 
-CAR_IMAGES = {
-    "BMW": (
-        "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
-    ),
-    "Mercedes": (
-        "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=800&q=80"
-    ),
-    "Toyota": (
-        "https://images.unsplash.com/photo-1629897048514-3dd7414fe72a?auto=format&fit=crop&w=800&q=80"
-    ),
-    "Hyundai": (
-        "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=800&q=80"
-    ),
-    "Kia": (
-        "https://images.unsplash.com/photo-1606152421802-db97b9c7a11b?auto=format&fit=crop&w=800&q=80"
-    ),
-    "Nissan": (
-        "https://images.unsplash.com/photo-1609521263047-f8d205293f24?auto=format&fit=crop&w=800&q=80"
-    ),
-    "Chevrolet": (
-        "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80"
-    ),
+# 2. صور مخصصة لكل موديل وسيدان محددة
+MODEL_IMAGES = {
+    "Chevrolet": {
+        "Aveo": "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
+        "Optra": "https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&w=800&q=80",
+        "Captiva": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
+    },
+    "Toyota": {
+        "Corolla": "https://images.unsplash.com/photo-1629897048514-3dd7414fe72a?auto=format&fit=crop&w=800&q=80"
+    },
+    "BMW": {
+        "3 Series (320i)": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
+    },
+    "Mercedes": {
+        "C-Class (C180/C200)": "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=800&q=80"
+    },
+    "Hyundai": {
+        "Elantra": "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=800&q=80"
+    },
+    "Nissan": {
+        "Sunny": "https://images.unsplash.com/photo-1609521263047-f8d205293f24?auto=format&fit=crop&w=800&q=80"
+    },
 }
+
+# صورة افتراضية عند عدم توفر صورة مخصصة للموديل
+DEFAULT_IMAGE = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80"
+
 
 # دالة حساب السعر المعدلة ذكياً
 def calculate_car_price(
@@ -155,39 +159,41 @@ def calculate_car_price(
 ):
     base_price = CAR_MODELS[brand][model_name]
     years_old = 2026 - year
-    
+
     age_dep = min(years_old * 0.035, 0.50)
     km_dep = min((km_driven / 20000) * 0.01, 0.15)
     trans_dep = 0.05 if transmission == "Manual" else 0.0
-    
+
     total_dep = age_dep + km_dep + trans_dep
 
-    # إذا كسر زيرو وسيارة حديثة وقليلة الكيلومترات (أقل من 30,000 كم وفي آخر 3 سنوات)
     if car_condition == "Zero (Brand New)":
         est_price = base_price
         age_dep = 0.0
         km_dep = 0.0
         trans_dep = 0.0
-    elif car_condition == "Nearly New (كسر زيرو)" and years_old <= 3 and km_driven <= 30000:
+    elif (
+        car_condition == "Nearly New (كسر زيرو)"
+        and years_old <= 3
+        and km_driven <= 30000
+    ):
         est_price = base_price * 0.92
     else:
-        # لو السيارة قديمة أو ماشية كتير ومختارة كسر زيرو أو مستعمل، تُحسب كسيارة مستعملة عادي لمنع الخلل
+        # معالجة ذكية: إذا اختار المستخدم "كسر زيرو" لسيارة قديمة، تُعامل كسيارة مستعملة عادي لمنع الخلل
         est_price = base_price * (1.0 - total_dep)
         est_price = max(est_price, base_price * 0.45)
 
     min_p = est_price * 0.95
     max_p = est_price * 1.05
 
-    return est_price, min_p, max_p, base_price, age_dep, km_dep, trans_dep
+    return est_price, min_p, max_p, base_p, age_dep, km_dep, trans_dep
+
 
 # هيدر التطبيق
 st.title("🚗 Smart Car Price Valuation System")
 st.caption("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 st.markdown("---")
 
-tab1, tab2 = st.tabs(
-    ["🔮 Predict Single Car Price", "⚖️ Compare Two Cars"]
-)
+tab1, tab2 = st.tabs(["🔮 Predict Single Car Price", "⚖️ Compare Two Cars"])
 
 # ==================== TAB 1 ====================
 with tab1:
@@ -200,11 +206,13 @@ with tab1:
         transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
 
     with col_img:
-        img_url = CAR_IMAGES.get(
-            brand,
-            "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
+        # جلب صورة الموديل المخصص أو الصورة الافتراضية
+        img_url = MODEL_IMAGES.get(brand, {}).get(model_name, DEFAULT_IMAGE)
+        st.image(
+            img_url,
+            caption=f"{brand} {model_name} Preview",
+            use_container_width=True,
         )
-        st.image(img_url, caption=f"{brand} Preview", use_container_width=True)
 
     car_condition = st.radio(
         "Car Condition",
@@ -313,7 +321,9 @@ with tab2:
         y1 = st.number_input("Year 1", 2000, 2026, 2020, key="y1")
         km1 = st.number_input("KM 1", 0, 500000, 60000, key="km1")
         cond1 = st.radio(
-            "Condition 1", ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"], key="cond1"
+            "Condition 1",
+            ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"],
+            key="cond1",
         )
         trans1 = st.selectbox(
             "Transmission 1", ["Automatic", "Manual"], key="t1"
@@ -326,7 +336,9 @@ with tab2:
         y2 = st.number_input("Year 2", 2000, 2026, 2018, key="y2")
         km2 = st.number_input("KM 2", 0, 500000, 100000, key="km2")
         cond2 = st.radio(
-            "Condition 2", ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"], key="cond2"
+            "Condition 2",
+            ["Used (مستعمل)", "Zero (Brand New)", "Nearly New (كسر زيرو)"],
+            key="cond2",
         )
         trans2 = st.selectbox(
             "Transmission 2", ["Automatic", "Manual"], key="t2"
