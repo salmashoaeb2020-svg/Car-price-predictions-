@@ -1,3 +1,4 @@
+import pickle
 import sys
 import joblib
 import numpy as np
@@ -6,7 +7,7 @@ import streamlit as st
 
 
 # معالج خاص لتجاوز نصوص الـ Imports الخاطئة المكتوبة داخل ملف الـ Pickle
-class CustomUnpickler(joblib.Unpickler):
+class CustomUnpickler(pickle.Unpickler):
 
     def find_class(self, module, name):
         if "pandas" in module or "import" in name:
