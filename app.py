@@ -1,13 +1,14 @@
+import io
 import pandas as pd
 import streamlit as st
 
+# إعدادات الصفحة
 st.set_page_config(
-    page_title="Car Price Predictor", page_icon="🚗", layout="centered"
+    page_title="Car Price Predictor", page_icon="🚗", layout="wide"
 )
 
-# قاموس شامل لأشهر الشركات والموديلات في السوق المصري
+# 1. قاعدة بيانات الشركات والموديلات والأسعار الأساسية
 CAR_MODELS = {
-    # 1. الياباني والآسيوي (الأكثر انتشاراً)
     "Nissan": {
         "Sunny": 800000,
         "Sentra": 1100000,
@@ -48,7 +49,6 @@ CAR_MODELS = {
         "Espresso": 550000,
     },
     "Honda": {"Civic": 1700000, "City": 1200000, "CR-V": 2200000},
-    # 2. الأوروبي (اقتصادي ومتوسط)
     "Renault": {
         "Logan": 650000,
         "Megane": 1400000,
@@ -87,7 +87,6 @@ CAR_MODELS = {
         "Ateca": 1850000,
         "Arona": 1350000,
     },
-    # 3. الصيني (انتشار واسع حديثاً)
     "MG": {
         "MG 5": 850000,
         "MG 6": 1200000,
@@ -105,7 +104,6 @@ CAR_MODELS = {
     "Changan": {"Alsvin": 650000, "CS35 Plus": 1150000, "CS55 Plus": 1350000},
     "BYD": {"F3": 620000, "Song Plus": 1600000},
     "HAVAL": {"H6": 1450000, "Jolion": 1200000},
-    # 4. الأمريكي والفاخر
     "Chevrolet": {
         "Optra": 750000,
         "Aveo": 600000,
@@ -152,88 +150,191 @@ CAR_IMAGES = {
     ),
 }
 
-st.title("🚗 Used Car Price Prediction System")
+
+# دالة حساب السعر والتفاصيل
+def calculate_car_price(
+    brand, model_name, year, km_driven, car_condition, transmission
+):
+    base_price = CAR_MODELS[brand][model_name]
+    years_old = 2026 - year
+    age_dep = min(years_old * 0.035, 0.50)
+    km_dep = min((km_driven / 20000) * 0.01, 0.15)
+    trans_dep = 0.05 if transmission == "Manual" else 0.0
+    total_dep = age_dep + km_dep + trans_dep
+
+    if car_condition == "Zero (Brand New)":
+        est_price = base_price
+    elif car_condition == "Nearly New (كسر زيرو)":
+        est_price = base_price * 0.92
+    else:
+        est_price = base_price * (1.0 - total_dep)
+        est_price = max(est_price, base_price * 0.45)
+
+    min_p = est_price * 0.95
+    max_p = est_price * 1.05
+
+    return est_price, min_p, max_p, base_price, age_dep, km_dep, trans_dep
+
+
+# هيدر التطبيق
+st.title("🚗 Smart Car Price Valuation System")
+st.caption("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 st.markdown("---")
-st.markdown("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
-st.markdown("---")
-st.write("Select the car brand and model line to get an accurate price range.")
 
-col_input, col_img = st.columns([1.2, 1])
-
-with col_input:
-    brand = st.selectbox("Car Brand", sorted(list(CAR_MODELS.keys())))
-    available_models = list(CAR_MODELS[brand].keys())
-    model_name = st.selectbox("Car Model / Line", available_models)
-    transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
-
-with col_img:
-    img_url = CAR_IMAGES.get(
-        brand,
-        "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
-    )
-    st.image(img_url, caption=f"{brand} Preview", use_container_width=True)
-
-car_condition = st.radio(
-    "Car Condition",
-    ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
-    horizontal=True,
+# تقسيم التطبيق لأجزاء (Tabs)
+tab1, tab2 = st.tabs(
+    ["🔮 Predict Single Car Price", "⚖️ Compare Two Cars"]
 )
 
-col1, col2 = st.columns(2)
+# ==================== TAB 1: توقع سعر سيارة واحدة ====================
+with tab1:
+    col_input, col_img = st.columns([1.2, 1])
 
-with col1:
-    year = st.number_input(
-        "Manufacturing Year", min_value=2000, max_value=2026, value=2018
-    )
-    fuel_type = st.selectbox(
-        "Fuel Type", ["Petrol", "Diesel", "Hybrid", "Electric"]
+    with col_input:
+        brand = st.selectbox("Car Brand", sorted(list(CAR_MODELS.keys())))
+        model_name = st.selectbox(
+            "Car Model / Line", list(CAR_MODELS[brand].keys())
+        )
+        transmission = st.selectbox("Transmission", ["Automatic", "Manual"])
+
+    with col_img:
+        img_url = CAR_IMAGES.get(
+            brand,
+            "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
+        )
+        st.image(img_url, caption=f"{brand} Preview", use_container_width=True)
+
+    car_condition = st.radio(
+        "Car Condition",
+        ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
+        horizontal=True,
     )
 
-with col2:
-    if car_condition == "Zero (Brand New)":
-        km_driven = 0
-        st.info("Kilometers Driven: 0 KM (Brand New)")
-    else:
-        km_driven = st.number_input(
-            "Kilometers Driven (KM)", min_value=0, max_value=500000, value=80000
+    col1, col2 = st.columns(2)
+    with col1:
+        year = st.number_input(
+            "Manufacturing Year", min_value=2000, max_value=2026, value=2018
+        )
+        fuel_type = st.selectbox(
+            "Fuel Type", ["Petrol", "Diesel", "Hybrid", "Electric"]
         )
 
-st.markdown("---")
+    with col2:
+        if car_condition == "Zero (Brand New)":
+            km_driven = 0
+            st.info("Kilometers Driven: 0 KM (Brand New)")
+        else:
+            km_driven = st.number_input(
+                "Kilometers Driven (KM)",
+                min_value=0,
+                max_value=500000,
+                value=80000,
+            )
 
-if st.button("Predict Price"):
-    base_price = CAR_MODELS[brand][model_name]
+    if st.button("Predict Price", key="btn_single"):
+        est_p, min_p, max_p, base_p, age_dep, km_dep, trans_dep = (
+            calculate_car_price(
+                brand, model_name, year, km_driven, car_condition, transmission
+            )
+        )
 
-    years_old = 2026 - year
-    age_depreciation = min(years_old * 0.035, 0.50)
-    km_depreciation = min((km_driven / 20000) * 0.01, 0.15)
-    trans_depreciation = 0.05 if transmission == "Manual" else 0.0
+        st.success(
+            f"🎯 **Estimated Price for ({brand} {model_name} {year}):** {est_p:,.2f} EGP\n\n"
+            f"📊 **Expected Range (±5% Margin):** {min_p:,.2f} EGP — {max_p:,.2f} EGP"
+        )
 
-    total_depreciation = (
-        age_depreciation + km_depreciation + trans_depreciation
-    )
+        # 1. الميزة الأولى: Price Breakdown (Explainability)
+        with st.expander("🔍 Price Breakdown & Factor Analysis"):
+            st.write(f"• **Base Valuation (Brand New Equivalent):** {base_p:,.2f} EGP")
+            st.write(f"• **Age Factor Discount ({2026 - year} Years Old):** -{age_dep * 100:.1f}%")
+            st.write(f"• **Mileage Discount ({km_driven:,} KM):** -{km_dep * 100:.1f}%")
+            if transmission == "Manual":
+                st.write("• **Manual Transmission Discount:** -5.0%")
 
-    if car_condition == "Zero (Brand New)":
-        estimated_price = base_price
-    elif car_condition == "Nearly New (كسر زيرو)":
-        estimated_price = base_price * 0.92
-    else:
-        estimated_price = base_price * (1.0 - total_depreciation)
-        estimated_price = max(estimated_price, base_price * 0.45)
+        # الرسم البياني
+        chart_data = pd.DataFrame(
+            {
+                "Price Range": ["Minimum", "Estimated", "Maximum"],
+                "Price (EGP)": [min_p, est_p, max_p],
+            }
+        )
+        st.subheader("📊 Price Range Visualization")
+        st.bar_chart(chart_data.set_index("Price Range"))
 
-    min_price = estimated_price * 0.95
-    max_price = estimated_price * 1.05
+        st.markdown("---")
+        c1, c2 = st.columns(2)
 
-    st.success(
-        f"🎯 **Estimated Price for ({brand} {model_name} {year}):** {estimated_price:,.2f} EGP\n\n"
-        f"📊 **Expected Price Range (±5% Error Margin):** {min_price:,.2f} EGP — {max_price:,.2f} EGP"
-    )
+        # 2. الميزة الثانية: Feedback System
+        with c1:
+            st.write("##### Was this price estimate accurate?")
+            fb_col1, fb_col2 = st.columns(2)
+            if fb_col1.button("👍 Accurate"):
+                st.toast("Thank you for your feedback!", icon="✅")
+            if fb_col2.button("👎 Inaccurate"):
+                st.toast("Feedback recorded for model improvement.", icon="📝")
 
-    chart_data = pd.DataFrame(
-        {
-            "Price Range": ["Minimum Price", "Estimated Price", "Maximum Price"],
-            "Price (EGP)": [min_price, estimated_price, max_price],
-        }
-    )
+        # 3. الميزة الثالثة: Download Report (CSV)
+        with c2:
+            st.write("##### Download Valuation Summary")
+            report_df = pd.DataFrame(
+                [
+                    {
+                        "Brand": brand,
+                        "Model": model_name,
+                        "Year": year,
+                        "Condition": car_condition,
+                        "KM": km_driven,
+                        "Transmission": transmission,
+                        "Estimated Price (EGP)": est_p,
+                        "Min Price": min_p,
+                        "Max Price": max_p,
+                    }
+                ]
+            )
+            csv = report_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Download Summary Report (CSV)",
+                data=csv,
+                file_name=f"{brand}_{model_name}_valuation.csv",
+                mime="text/csv",
+            )
 
-    st.subheader("📊 Price Range Visualization")
-    st.bar_chart(chart_data.set_index("Price Range"))
+# ==================== TAB 2: مقارنة سيارتين ====================
+with tab2:
+    st.subheader("⚖️ Side-by-Side Car Valuation Comparison")
+    col_car1, col_car2 = st.columns(2)
+
+    with col_car1:
+        st.markdown("### 🚗 Car 1")
+        b1 = st.selectbox("Brand 1", sorted(list(CAR_MODELS.keys())), key="b1")
+        m1 = st.selectbox("Model 1", list(CAR_MODELS[b1].keys()), key="m1")
+        y1 = st.number_input("Year 1", 2000, 2026, 2020, key="y1")
+        km1 = st.number_input("KM 1", 0, 500000, 60000, key="km1")
+        cond1 = st.radio(
+            "Condition 1", ["Used (مستعمل)", "Zero (Brand New)"], key="cond1"
+        )
+        trans1 = st.selectbox("Transmission 1", ["Automatic", "Manual"], key="t1")
+
+    with col_car2:
+        st.markdown("### 🚗 Car 2")
+        b2 = st.selectbox("Brand 2", sorted(list(CAR_MODELS.keys())), key="b2")
+        m2 = st.selectbox("Model 2", list(CAR_MODELS[b2].keys()), key="m2")
+        y2 = st.number_input("Year 2", 2000, 2026, 2018, key="y2")
+        km2 = st.number_input("KM 2", 0, 500000, 100000, key="km2")
+        cond2 = st.radio(
+            "Condition 2", ["Used (مستعمل)", "Zero (Brand New)"], key="cond2"
+        )
+        trans2 = st.selectbox("Transmission 2", ["Automatic", "Manual"], key="t2")
+
+    if st.button("Compare Prices", key="btn_compare"):
+        p1, _, _, _, _, _, _ = calculate_car_price(b1, m1, y1, km1, cond1, trans1)
+        p2, _, _, _, _, _, _ = calculate_car_price(b2, m2, y2, km2, cond2, trans2)
+
+        st.markdown("---")
+        res1, res2 = st.columns(2)
+        res1.metric(f"{b1} {m1} ({y1})", f"{p1:,.0f} EGP")
+        res2.metric(f"{b2} {m2} ({y2})", f"{p2:,.0f} EGP")
+
+        diff = abs(p1 - p2)
+        cheaper = f"{b1} {m1}" if p1 < p2 else f"{b2} {m2}"
+        st.info(f"💡 **Comparison Summary:** {cheaper} is cheaper by approximately **{diff:,.0f} EGP**.")
