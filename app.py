@@ -6,7 +6,7 @@ st.set_page_config(
     page_title="Car Price Predictor", page_icon="🚗", layout="centered"
 )
 
-# 1. صور السيارات
+# 1. قاموس لربط ماركة كل سيارة برابط صورة عالية الجودة
 CAR_IMAGES = {
     "BMW": (
         "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
@@ -31,25 +31,25 @@ CAR_IMAGES = {
     ),
 }
 
-# الأسعار التقديرية الأساسية
+# 2. الأسعار الأساسية المعدلة وفقاً للسوق
 BASE_PRICES = {
-    "BMW": 1200000,
-    "Mercedes": 1300000,
-    "Toyota": 500000,
-    "Hyundai": 400000,
-    "Kia": 420000,
-    "Nissan": 380000,
-    "Chevrolet": 350000,
+    "BMW": 3800000,
+    "Mercedes": 4200000,
+    "Toyota": 1800000,
+    "Hyundai": 1200000,
+    "Kia": 1300000,
+    "Nissan": 1000000,
+    "Chevrolet": 900000,
 }
 
-# عنوان التطبيق
+# عنوان التطبيق واسم الفريق
 st.title("🚗 Used Car Price Prediction System")
 st.markdown("---")
 st.markdown("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 st.markdown("---")
 st.write("Enter the car specifications to get the estimated price.")
 
-# مدخلات الواجهة والصور
+# 3. تقسيم الشاشة لعمودين: المدخلات والصورة التفاعلية
 col_input, col_img = st.columns([1.2, 1])
 
 with col_input:
@@ -64,6 +64,7 @@ with col_img:
         CAR_IMAGES[brand], caption=f"{brand} Preview", use_container_width=True
     )
 
+# اختيار حالة السيارة
 car_condition = st.radio(
     "Car Condition",
     ["Zero (Brand New)", "Nearly New (كسر زيرو)", "Used (مستعمل)"],
@@ -91,35 +92,40 @@ with col2:
 
 st.markdown("---")
 
-# زر التوقع
+# 4. حساب وتوقع السعر
 if st.button("Predict Price"):
-    base_price = BASE_PRICES.get(brand, 400000)
+    base_price = BASE_PRICES.get(brand, 1200000)
 
-    # معاملات الحساب
+    # معامل نوع الهيكل
+    type_mult = 1.25 if car_type == "SUV" else 1.0
+
+    # معامل سنة الصنع
     if year >= 2024:
-        year_mult = 1.35
-    elif year >= 2020:
-        year_mult = 1.15
-    elif year >= 2015:
+        year_mult = 1.30
+    elif year >= 2022:
+        year_mult = 1.10
+    elif year >= 2018:
         year_mult = 0.85
     else:
         year_mult = 0.65
 
+    # معامل الكيلومترات
     if km_driven == 0:
         km_mult = 1.0
     elif km_driven < 50000:
-        km_mult = 0.90
+        km_mult = 0.88
     elif km_driven < 100000:
-        km_mult = 0.80
+        km_mult = 0.78
     else:
-        km_mult = 0.70
+        km_mult = 0.68
 
+    # معامل حالة السيارة
     if car_condition == "Zero (Brand New)":
-        cond_mult = 1.25
+        cond_mult = 1.20
     elif car_condition == "Nearly New (كسر زيرو)":
-        cond_mult = 1.10
+        cond_mult = 1.05
     else:
-        cond_mult = 0.95
+        cond_mult = 0.90
 
-    final_price = base_price * year_mult * km_mult * cond_mult
+    final_price = base_price * type_mult * year_mult * km_mult * cond_mult
     st.success(f"The estimated car price is: {final_price:,.2f} EGP")
