@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -8,10 +9,12 @@ from joblib import load
 # ----------------------------------------------------------------------------
 # إعدادات عامة
 # ----------------------------------------------------------------------------
-CSV_PATH = "hatla2ee_scraped_data.csv"
-MODEL_PATH = "model.pkl"
-SCALER_PATH = "scaler.pkl"
-ENCODERS_PATH = "label_encoder.pkl"
+# المسارات نسبةً لمكان app.py نفسه (مش مكان تشغيل الأمر)
+BASE_DIR = Path(__file__).resolve().parent
+CSV_PATH = BASE_DIR / "hatla2ee_scraped_data.csv"
+MODEL_PATH = BASE_DIR / "model.pkl"
+SCALER_PATH = BASE_DIR / "scaler.pkl"
+ENCODERS_PATH = BASE_DIR / "label_encoder.pkl"
 
 # لو النموذج اتدرب على log(Price) خليها True عشان نرجّع السعر لأصله
 TARGET_IS_LOG = False
