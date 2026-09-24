@@ -45,16 +45,18 @@ st.markdown(
 )
 
 # عنوان التطبيق
-st.markdown('<p class="main-title">🚗 Car Price Prediction System</p>', unsafe_allow_html=True)
 st.markdown(
-    '<p class="sub-title">نظام ذكي لتحليل وتوقع أسعار السيارات بناءً على بيانات السوق'
-    " ومواصفات السيارة</p>",
+    '<p class="main-title">🚗 Car Price Prediction System</p>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    '<p class="sub-title">نظام ذكي لتحليل وتوقع أسعار السيارات بناءً على بيانات السوق ومواصفات السيارة</p>',
     unsafe_allow_html=True,
 )
 st.markdown("---")
 st.markdown("👩‍💻 **Developed by:** Salma Ahmed & Habiba Essam")
 
-# تحميل وتجهيز البيانات
+# تحميل وتجهيز البيانات (الأسعار هنا افتراضية مبدئية سيتم ضربها في معامل الجنيه المصري لتناسب السوق الواقعي)
 @st.cache_data
 def load_and_process_data():
   data = {
@@ -128,18 +130,6 @@ def load_and_process_data():
 
 df = load_and_process_data()
 
-CAR_IMAGES = {
-    "toyota": "https://images.unsplash.com/photo-1629897048514-3dd7414fe72a?auto=format&fit=crop&w=800&q=80",
-    "nissan": "https://images.unsplash.com/photo-1609521263047-f8d205293f24?auto=format&fit=crop&w=800&q=80",
-    "mazda": "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80",
-    "bmw": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80",
-    "volkswagen": "https://images.unsplash.com/photo-1619767886558-efdc259cde1a?auto=format&fit=crop&w=800&q=80",
-    "audi": "https://images.unsplash.com/photo-1606152421802-db97b9c7a11b?auto=format&fit=crop&w=800&q=80",
-    "honda": "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=800&q=80",
-    "mitsubishi": "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80",
-    "porsche": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80",
-}
-
 tab1, tab2 = st.tabs(["🎯 توقع الأسعار (Price Prediction)", "📊 تحليل بيانات السوق"])
 
 with tab1:
@@ -151,13 +141,11 @@ with tab1:
     st.markdown("#### 🚘 المواصفات الأساسية")
     selected_brand = st.selectbox("ماركة السيارة (Car Brand)", df["CarName"].unique())
     
-    # إضافة عدة أنواع وقود للاختيار من بينها
     fueltype = st.selectbox(
         "نوع الوقود (Fuel Type)", 
         ["Gasoline (بنزين)", "Diesel (ديزل)", "Hybrid (هجين)", "Electric (كهربائي)"]
     )
     
-    # إضافة خانة ناقل الحركة Manual / Automatic
     transmission = st.selectbox(
         "ناقل الحركة (Transmission)", 
         ["Automatic (أوتوماتيك)", "Manual (مانيوال)"]
@@ -189,23 +177,9 @@ with tab1:
         value=int(df["citympg"].mean()),
     )
 
-  # عرض صورة الماركة بشكل جمالي
-  st.markdown("---")
-  img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
-  with img_col2:
-    img_url = CAR_IMAGES.get(
-        selected_brand,
-        "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80",
-    )
-    st.image(
-        img_url,
-        caption=f"معاينة ماركة السيارة: {selected_brand.capitalize()}",
-        use_container_width=True,
-    )
-
   st.markdown("---")
 
-  # زر التوقع وحساب السعر بناءً على الماركة، سنة الصنع، الكيلومترات، ونوع الناقل والوقود
+  # زر التوقع وحساب السعر بالجنيه المصري بناءً على المعطيات وإهلاك السوق
   if st.button("احسب السعر المتوقع (Predict Price)"):
     base_avg_price = df[df["CarName"] == selected_brand]["price"].mean()
     if np.isnan(base_avg_price):
@@ -217,13 +191,16 @@ with tab1:
     km_depreciation = min((km_driven / 20000) * 0.015, 0.20)
     total_depreciation_factor = max(1.0 - (age_depreciation + km_depreciation), 0.25)
 
-    # تأثير نوع الوقود وناقل الحركة على السعر التقديري
+    # تأثير نوع الوقود وناقل الحركة
     fuel_multiplier = 1.15 if "Electric" in fueltype or "Hybrid" in fueltype else (0.95 if "Diesel" in fueltype else 1.0)
     trans_multiplier = 1.08 if "Automatic" in transmission else 1.0
 
-    # معادلة حساب السعر التقديري
-    estimated_price = (base_avg_price * 0.5 - (citympg * 30)) * total_depreciation_factor * fuel_multiplier * trans_multiplier
-    estimated_price = max(estimated_price, 2000)  # حد أدنى منطقي للسعر
+    # معامل تحويل تقريبي للجنيه المصري بالسوق الواقعي
+    egp_conversion_rate = 55.0 
+
+    # معادلة حساب السعر التقديري بالجنيه المصري
+    estimated_price = (base_avg_price * 0.5 - (citympg * 30)) * total_depreciation_factor * fuel_multiplier * trans_multiplier * egp_conversion_rate
+    estimated_price = max(estimated_price, 150000)  # حد أدنى منطقي بالجنيه المصري
 
     min_price = estimated_price * 0.90
     max_price = estimated_price * 1.10
@@ -235,12 +212,12 @@ with tab1:
     with res_col1:
       st.metric(
           label="💰 السعر المتوقع (Estimated Price)",
-          value=f"{estimated_price:,.2f} $",
+          value=f"{estimated_price:,.2f} EGP",
       )
     with res_col2:
       st.metric(
           label="📊 نطاق السعر المحتمل (Price Range)",
-          value=f"{min_price:,.2f} $ — {max_price:,.2f} $",
+          value=f"{min_price:,.2f} EGP — {max_price:,.2f} EGP",
       )
 
     chart_data = pd.DataFrame({
@@ -249,7 +226,7 @@ with tab1:
             "السعر المتوقع",
             "الحد الأقصى للسعر",
         ],
-        "السعر ($)": [min_price, estimated_price, max_price],
+        "السعر (EGP)": [min_price, estimated_price, max_price],
     })
     st.bar_chart(chart_data.set_index("Price Range"))
 
