@@ -14,7 +14,7 @@ st.set_page_config(
 @st.cache_resource
 def load_model():
     # تأكدي إن ملف الـ model.pkl موجود في نفس الفولدر
-    return joblib.load('model.pkl')
+    return joblib.load('car_price_pipeline.pkl')
 
 model = load_model()
 
