@@ -1,42 +1,50 @@
+import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
-from sklearn.model_selection import train_test_split
-from xgboost import XGBRegressor
-from sklearn.metrics import mean_squared_error, r2_score
 
-# 1. تحميل البيانات وتنظيفها
-df = pd.read_csv('hatla2ee_scraped_data.csv')
+# إعدادات صفحة التطبيق
+st.set_page_config(page_title="توقع أسعار السيارات المستعملة", page_icon="🚗", layout="centered")
 
-# التخلص من الصفوف التي تحتوي على قيم مفقودة في الأسعار أو الكيلومترات
-df = df.dropna(subset=['Price', 'Mileage'])
+st.title("🚗 تطبيق التنبؤ بأسعار السيارات المستعملة في مصر")
+st.write("أدخل مواصفات السيارة لمعرفة السعر المتوقع بناءً على نموذج الذكاء الاصطناعي.")
 
-# اختيار الأعمدة المناسبة للنموذج (يمكنك تعديلها حسب المتغيرات المتوفرة لديك)
-# مثال: الاعتماد على الماركة، الموديل، سنة الصنع، الكيلومترات، والمدينة
-features = ['Make', 'Model', 'Year', 'Mileage', 'City']
-target = 'Price'
+# تحميل النموذج والأعمدة المحفوظة مسبقاً
+@st.cache_resource
+def load_artifacts():
+    model = joblib.load('car_price_model.pkl')
+    model_columns = joblib.load('model_columns.pkl')
+    return model, model_columns
 
-X = df[features]
-y = df[target]
+model, model_columns = load_artifacts()
 
-# تحويل المتغيرات النصية إلى ترميز عددي (One-Hot Encoding)
-X = pd.get_dummies(X, drop_first=True)
+# مدخلات المستخدم في واجهة Streamlit
+st.sidebar.header("مواصفات السيارة المطلوبة")
 
-# حفظ أسماء الأعمدة لضمان مطابقتها لاحقاً في واجهة الاستخدام
-model_columns = X.columns.tolist()
-joblib.dump(model_columns, 'model_columns.pkl')
+mileage = st.sidebar.number_input("عدد الكيلومترات (Mileage)", min_value=0, max_value=500000, value=50000, step=5000)
+year = st.sidebar.number_input("سنة الصنع (Year)", min_value=1990, max_value=2026, value=2020, step=1)
+city = st.sidebar.selectbox("المدينة (City)", ["Cairo", "Giza", "Alexandria", "Mansoura", "Tanta"])
+make = st.sidebar.text_input("ماركة السيارة (Make)", "Toyota")
+car_model = st.sidebar.text_input("موديل السيارة (Model)", "Corolla")
 
-# 2. تقسيم البيانات إلى بيانات تدريب واختبار
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# 3. بناء وتدريب نموذج XGBoost
-model = XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
-model.fit(X_train, y_train)
-
-# 4. تقييم النموذج
-y_pred = model.predict(X_test)
-print(f"R2 Score: {r2_score(y_test, y_pred):.4f}")
-
-# 5. حفظ النموذج المدرب
-joblib.dump(model, 'car_price_model.pkl')
-print("تم تدريب وحفظ النموذج بنجاح!")
+# زر التنبؤ
+if st.button("توقع السعر الآن"):
+    # إنشاء إطار بيانات للمدخلات الجديدة
+    input_data = pd.DataFrame({
+        'Mileage': [mileage],
+        'Year': [year],
+        'City': [city],
+        'Make': [make],
+        'Model': [car_model]
+    })
+    
+    # ترميز المدخلات
+    input_data = pd.get_dummies(input_data)
+    
+    # مطابقة الأعمدة تماماً لما تم التدريب عليه
+    input_data = input_data.reindex(columns=model_columns, fill_value=0)
+    
+    # التنبؤ بالسعر
+    predicted_price = model.predict(input_data)[0]
+    
+    # عرض النتيجة
+    st.success(f"### السعر المتوقع للسيارة هو: حوالي **{predicted_price:,.0f} جنيه**")
