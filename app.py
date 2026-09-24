@@ -39,13 +39,6 @@ st.markdown(
         background-color: #e03e3e;
         color: white;
     }
-    .metric-card {
-        background-color: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        border: 1px solid #e3e6f0;
-        text-align: center;
-    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -115,36 +108,8 @@ def load_and_process_data():
           "convertible",
       ],
       "drivewheel": ["fwd", "fwd", "fwd", "fwd", "rwd", "fwd", "fwd", "fwd", "fwd", "rwd"],
-      "enginetype": [
-          "ohc",
-          "ohc",
-          "ohc",
-          "rotary",
-          "ohc",
-          "ohc",
-          "ohc",
-          "ohc",
-          "ohc",
-          "ohcv",
-      ],
-      "cylindernumber": [
-          "four",
-          "four",
-          "four",
-          "twelve",
-          "four",
-          "five",
-          "four",
-          "four",
-          "four",
-          "six",
-      ],
-      "enginesize": [120, 120, 97, 70, 109, 136, 109, 92, 92, 198],
-      "horsepower": [111, 111, 88, 101, 102, 110, 85, 76, 68, 207],
       "citympg": [21, 19, 31, 17, 21, 19, 27, 30, 31, 17],
       "highwaympg": [27, 24, 33, 23, 27, 25, 33, 34, 38, 25],
-      "compressionratio": [9.0, 8.5, 9.4, 9.4, 8.8, 8.5, 9.0, 9.0, 9.0, 9.5],
-      "peakrpm": [5000, 5000, 5500, 6000, 5500, 5500, 5250, 5500, 5500, 5900],
       "price": [13495, 16500, 7898, 10945, 16430, 15250, 7975, 7945, 7609, 34028],
   }
   df = pd.DataFrame(data)
@@ -175,7 +140,6 @@ CAR_IMAGES = {
     "porsche": "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80",
 }
 
-# تقسيم الشاشة إلى أقسام منظمة باستخدام Tabs أو Columns
 tab1, tab2 = st.tabs(["🎯 توقع الأسعار (Price Prediction)", "📊 تحليل بيانات السوق"])
 
 with tab1:
@@ -186,12 +150,23 @@ with tab1:
   with col1:
     st.markdown("#### 🚘 المواصفات الأساسية")
     selected_brand = st.selectbox("ماركة السيارة (Car Brand)", df["CarName"].unique())
-    fueltype = st.selectbox("نوع الوقود (Fuel Type)", df["fueltype"].unique())
-    aspiration = st.selectbox("نوع السحب (Aspiration)", df["aspiration"].unique())
+    
+    # إضافة عدة أنواع وقود للاختيار من بينها
+    fueltype = st.selectbox(
+        "نوع الوقود (Fuel Type)", 
+        ["Gasoline (بنزين)", "Diesel (ديزل)", "Hybrid (هجين)", "Electric (كهربائي)"]
+    )
+    
+    # إضافة خانة ناقل الحركة Manual / Automatic
+    transmission = st.selectbox(
+        "ناقل الحركة (Transmission)", 
+        ["Automatic (أوتوماتيك)", "Manual (مانيوال)"]
+    )
+    
     carbody = st.selectbox("هيكل السيارة (Car Body)", df["carbody"].unique())
 
-    # خانات الإدخال الجديدة المطلوبة
-    st.markdown("#### 📅 حالة الاستخدام والعمر")
+  with col2:
+    st.markdown("#### 📅 سنة الصنع والمسافة المقطوعة")
     manufacturing_year = st.number_input(
         "سنة الصنع (Manufacturing Year)",
         min_value=1980,
@@ -205,33 +180,13 @@ with tab1:
         value=80000,
         step=5000,
     )
-
-  with col2:
-    st.markdown("#### ⚙️ الأداء الفني والمحرك")
     drivewheel = st.selectbox("نوع الجر (Drive Wheel)", df["drivewheel"].unique())
-    enginesize = st.slider(
-        "حجم المحرك (Engine Size)",
-        min_value=50,
-        max_value=350,
-        value=int(df["enginesize"].mean()),
-    )
-    horsepower = st.slider(
-        "القدرة الحصانية (Horsepower)",
-        min_value=40,
-        max_value=300,
-        value=int(df["horsepower"].mean()),
-    )
+    
     citympg = st.number_input(
         "معدل استهلاك الوقود داخل المدينة (City MPG)",
         min_value=10,
         max_value=60,
         value=int(df["citympg"].mean()),
-    )
-    highwaympg = st.number_input(
-        "معدل استهلاك الوقود على الطرق السريعة (Highway MPG)",
-        min_value=10,
-        max_value=70,
-        value=int(df["highwaympg"].mean()),
     )
 
   # عرض صورة الماركة بشكل جمالي
@@ -250,7 +205,7 @@ with tab1:
 
   st.markdown("---")
 
-  # زر التنبوء وتطبيق معادلة الإهلاك مع الانحدار
+  # زر التوقع وحساب السعر بناءً على الماركة، سنة الصنع، الكيلومترات، ونوع الناقل والوقود
   if st.button("احسب السعر المتوقع (Predict Price)"):
     base_avg_price = df[df["CarName"] == selected_brand]["price"].mean()
     if np.isnan(base_avg_price):
@@ -258,21 +213,16 @@ with tab1:
 
     # حساب الإهلاك بناءً على سنة الصنع والـ KM المقطوعة
     years_old = 2026 - manufacturing_year
-    age_depreciation = min(
-        years_old * 0.03, 0.60
-    )  # خصم 3% لكل سنة (بحد أقصى 60%)
-    km_depreciation = min(
-        (km_driven / 20000) * 0.015, 0.20
-    )  # خصم 1.5% لكل 20 ألف كم (بحد أقصى 20%)
+    age_depreciation = min(years_old * 0.03, 0.60)
+    km_depreciation = min((km_driven / 20000) * 0.015, 0.20)
     total_depreciation_factor = max(1.0 - (age_depreciation + km_depreciation), 0.25)
 
-    # نموذج السعر المعتمد على المحرك والأداء مع معامل الإهلاك
-    estimated_price = (
-        base_avg_price * 0.3
-        + (enginesize * 40)
-        + (horsepower * 30)
-        - (citympg * 20)
-    ) * total_depreciation_factor
+    # تأثير نوع الوقود وناقل الحركة على السعر التقديري
+    fuel_multiplier = 1.15 if "Electric" in fueltype or "Hybrid" in fueltype else (0.95 if "Diesel" in fueltype else 1.0)
+    trans_multiplier = 1.08 if "Automatic" in transmission else 1.0
+
+    # معادلة حساب السعر التقديري
+    estimated_price = (base_avg_price * 0.5 - (citympg * 30)) * total_depreciation_factor * fuel_multiplier * trans_multiplier
     estimated_price = max(estimated_price, 2000)  # حد أدنى منطقي للسعر
 
     min_price = estimated_price * 0.90
@@ -293,7 +243,6 @@ with tab1:
           value=f"{min_price:,.2f} $ — {max_price:,.2f} $",
       )
 
-    # رسم بياني تفاعلي للرينج
     chart_data = pd.DataFrame({
         "Price Range": [
             "الحد الأدنى للسعر",
