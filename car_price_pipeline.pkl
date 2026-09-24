@@ -1,40 +1,70 @@
+import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
 
-data = {
-    'Year': [2017, 2015, 2019, 2021, 2010, 2018, 2016, 2020, 2014, 2022],
-    'KM_Driven': [60000, 90000, 30000, 15000, 150000, 45000, 80000, 20000, 110000, 10000],
-    'Fuel_Type': ['Petrol', 'Diesel', 'Petrol', 'Petrol', 'Diesel', 'Petrol', 'Diesel', 'Petrol', 'Diesel', 'Petrol'],
-    'Transmission': ['Manual', 'Manual', 'Automatic', 'Automatic', 'Manual', 'Automatic', 'Manual', 'Automatic', 'Manual', 'Automatic'],
-    'Price': [250000, 180000, 400000, 550000, 110000, 380000, 210000, 490000, 160000, 620000]
-}
-df = pd.DataFrame(data)
-
-X = df.drop('Price', axis=1)
-y = df['Price']
-
-categorical_features = ['Fuel_Type', 'Transmission']
-numeric_features = ['Year', 'KM_Driven']
-
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', 'passthrough', numeric_features),
-        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
-    ]
+# 1. إعدادات الصفحة
+st.set_page_config(
+    page_title="توقع أسعار السيارات في مصر",
+    page_icon="🚗",
+    layout="centered"
 )
 
-pipeline = Pipeline(steps=[
-    ('preprocessor', preprocessor),
-    ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
-])
+# 2. تحميل الـ Pipeline المدرب مسبقاً
+@st.cache_resource
+def load_model():
+    # تأكدي إن اسم الملف مطابق للي طلعتيه
+    return joblib.load('car_price_pipeline.pkl')
 
-pipeline.fit(X, y)
+pipeline = load_model()
 
-joblib.dump(pipeline, 'car_price_pipeline.pkl')
-print("Done")
+st.title("🚗 نظام توقع أسعار السيارات في السوق المصري")
+st.write("أدخل تفاصيل السيارة لمعرفة السعر المحدد ورينج الأسعار المتوقع بالجنيه المصري (EGP).")
+
+st.markdown("---")
+
+# 3. تصميم مدخلات المستخدم (Inputs) متوافقة مع الـ Features بتاعتك
+col1, col2 = st.columns(2)
+
+with col1:
+    year = st.slider("سنة الصنع (Year)", min_value=2010, max_value=2026, value=2020)
+    km_driven = st.number_input("العداد (الكيلومترات المقطوعة - KM_Driven)", min_value=0, max_value=500000, value=50000, step=5000)
+
+with col2:
+    fuel_type = st.selectbox("نوع الوقود (Fuel_Type)", ["Petrol", "Diesel"])
+    transmission = st.selectbox("ناقل الحركة (Transmission)", ["Automatic", "Manual"])
+
+st.markdown("---")
+
+# 4. زر التوقع ومعالجة البيانات
+if st.button("توقع السعر الآن 🔍", use_container_width=True):
+    
+    # تجهيز المدخلات في DataFrame بنفس أسماء الأعمدة المستخدمة أثناء التدريب
+    input_data = pd.DataFrame({
+        'Year': [year],
+        'KM_Driven': [km_driven],
+        'Fuel_Type': [fuel_type],
+        'Transmission': [transmission]
+    })
+    
+    try:
+        # الـ Pipeline هيقوم بعمل الـ Encoding والتوقع تلقائياً!
+        predicted_price = pipeline.predict(input_data)[0]
+        
+        # حساب رينج السعر (بفرق 7% كمثال تقريبي لتباين السوق)
+        margin = predicted_price * 0.07
+        min_price = max(0, predicted_price - margin)
+        max_price = predicted_price + margin
+        
+        # عرض النتائج
+        st.success("تم التوقع بنجاح!")
+        
+        metric_col1, metric_col2 = st.columns(2)
+        with metric_col1:
+            st.metric(label="🏷️ السعر المتوقع المحدّد", value=f"{int(predicted_price):,} جنيه")
+        with metric_col2:
+            st.metric(label="📊 رينج الأسعار المتوقع", value=f"{int(min_price):,} - {int(max_price):,} جنيه")
+            
+        st.info("⚠️ ملحوظة: هذا التوقع استرشادي بناءً على الأسعار الحالية في السوق المصري وقد يختلف حسب حالة السيارة الفعلية.")
+        
+    except Exception as e:
+        st.error(f"حدث خطأ أثناء عملية التوقع: {e}")
